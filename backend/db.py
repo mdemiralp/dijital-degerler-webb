@@ -1,0 +1,56 @@
+import sqlite3
+import bcrypt
+
+def get_conn():
+    return sqlite3.connect("dijital_degerler.db")
+
+def init_db():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            email TEXT UNIQUE,
+            password TEXT,
+            role TEXT,
+            points INTEGER DEFAULT 0,
+            medals INTEGER DEFAULT 0
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_email TEXT,
+            task_id INTEGER,
+            completed INTEGER DEFAULT 0,
+            date TEXT,
+            reflection TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def register_user(name, email, password, role):
+    conn = get_conn()
+    c = conn.cursor()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    try:
+        c.execute("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
+                  (name, email, hashed, role))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+def login_user(email, password):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE email=?", (email,))
+    user = c.fetchone()
+    conn.close()
+    if user and bcrypt.checkpw(password.encode('utf-8'), user[3].encode('utf-8')):
+        return user
+    return None
